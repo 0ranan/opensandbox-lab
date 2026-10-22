@@ -17,6 +17,18 @@ kramdown:
   input: GFM
   syntax_highlighter: rouge
 
+# 页面默认套用基础布局；notes/ 下的笔记额外带侧边栏目录（见 _layouts/note.html）
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+  - scope:
+      path: "notes"
+    values:
+      layout: note
+
+
 # 以下内容不进入站点产物
 exclude:
   - AGENTS.md
@@ -25,6 +37,7 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - .agents
+  - .github
   - node_modules
   - vendor
   - "*.example"

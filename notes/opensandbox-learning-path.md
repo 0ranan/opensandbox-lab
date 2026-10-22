@@ -5,8 +5,6 @@ tags: [OpenSandbox, 容器, Kubernetes, 学习路径]
 summary: 三条安装路径的取舍，以及从 Docker 单机到 kind 控制面的五步顺序
 ---
 
-# OpenSandbox 学习路径
-
 你这个仓库的安装方式其实是**三条互相独立的路径**，学习目的和生产部署的最优解不一样。结论先说：**从 Docker 单机路线开始，不要一上来就上 Kubernetes。**
 
 ## 三种方式对比
