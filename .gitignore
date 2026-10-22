@@ -1,0 +1,29 @@
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# 临时文件与日志
+*.log
+*.tmp
+tmp/
+
+# 凭据与本地配置（禁止入库）
+.env
+.env.*
+!*.env.example
+*.kubeconfig
+kubeconfig
+*.pem
+*.key
+*.p12
+
+# 本地运行产物
+node_modules/
+dist/
+build/
+.venv/
+__pycache__/
