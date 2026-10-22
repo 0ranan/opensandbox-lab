@@ -1,0 +1,30 @@
+# GitHub Pages 站点配置（内置 Jekyll，构建源为 main 分支根目录）
+
+title: opensandbox-lab
+description: 学习笔记
+lang: zh-CN
+
+# 项目页地址为 https://<用户名>.github.io/<仓库名>/，
+# baseurl 必须与仓库名一致，否则站内链接与资源会 404。
+url: "https://0ranan.github.io"
+baseurl: "/opensandbox-lab"
+
+# 笔记地址形如 /notes/quickstart-01/，便于站内相对链接与长期引用
+permalink: pretty
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# 以下内容不进入站点产物
+exclude:
+  - AGENTS.md
+  - README.md
+  - LICENSE
+  - Gemfile
+  - Gemfile.lock
+  - .agents
+  - node_modules
+  - vendor
+  - "*.example"
