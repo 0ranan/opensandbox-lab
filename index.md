@@ -8,7 +8,7 @@ title: 学习笔记
 
 ## 笔记
 
-待补充。
+- [OpenSandbox 学习路径](notes/opensandbox-learning-path/)
 
 ## 实验记录
 
