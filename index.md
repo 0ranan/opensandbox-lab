@@ -9,6 +9,7 @@ title: 学习笔记
 ## 笔记
 
 - [OpenSandbox 学习路径](notes/opensandbox-learning-path/)
+- [给 OpenSandbox 配置密钥](notes/opensandbox-secrets/)
 
 ## 实验记录
 
