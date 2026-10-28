@@ -147,13 +147,27 @@ a:hover {
 }
 
 @media (min-width: 1000px) {
+  /* 标题区与正文、目录都是 .note 的直接子元素，必须显式指定网格区域，
+     否则 header 只占第一列，正文会被自动排进 220px 的侧栏列。 */
   .note.with-toc {
     grid-template-columns: minmax(0, 1fr) 220px;
-    gap: 56px;
+    grid-template-areas:
+      "header header"
+      "body toc";
+    gap: 0 56px;
+  }
+
+  .note.with-toc .note-header {
+    grid-area: header;
+  }
+
+  .note.with-toc .note-body {
+    grid-area: body;
   }
 
   .note.with-toc .toc {
-    order: 2;
+    grid-area: toc;
+    order: 0;
     position: sticky;
     top: 24px;
     max-height: calc(100vh - 48px);
