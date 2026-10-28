@@ -1,73 +1,101 @@
 ---
 title: 给 OpenSandbox 配置密钥
 date: 2026-10-22
-tags: [OpenSandbox, 密钥, 配置]
-summary: 客户端没带 API Key 导致 401，以及三种补上密钥的方式
+tags: [OpenSandbox, 密钥, 配置, Docker]
+summary: 服务端与客户端如何配同一把 API Key，以及 401 的两种错误码分别代表什么
 ---
 
-`osb sandbox list` 返回 401，错误码 `MISSING_API_KEY`，但同一时刻服务端是好的：`http://127.0.0.1:8080/health` 正常响应。这个地址由 kind 集群的 envoy gateway 转发到 `opensandbox-system/opensandbox-server`，服务端进程是 uvicorn，链路本身没问题。
+OpenSandbox 的服务端配了 `api_key` 之后，所有业务接口都要校验请求头 `OPEN-SANDBOX-API-KEY`。不配的话等于把建沙箱、执行命令的权限一起交出去；配了但两边写得不一致，客户端拿到的就是 401，所以密钥值必须成对出现。
 
-## 原因
+配置分为下列步骤：
+- 生成一把随机密钥。
+- 再写进服务端（Kubernetes 或 本地 Docker）。
+- 最后把同一个值配到 `osb` 客户端。
+服务端只在启动时读配置，改完要重启。
 
-一边看客户端配置：
+## 随机密钥
 
 ```bash
-osb config show
+openssl rand -hex 32
 ```
 
-`api_key = -`，说明 `~/.opensandbox/config.toml` 里的 `api_key` 没有设置。服务端那边 `opensandbox-server-config` 里是：
+或者
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+`my_api_key` 是 Helm chart 里写死的默认值，本地自己玩可以留着；一旦要让别人访问就得换掉。
+
+## server 配置密钥（Kubernetes 路线）
+
+服务端把 key 明文放在 ConfigMap `opensandbox-server-config` 的 `api_key` 字段：
+
+```bash
+kubectl -n <命名空间> edit configmap opensandbox-server-config
+```
+
+服务端只在启动时读一次配置，改完不重启不会感知：
+
+```bash
+kubectl -n <命名空间> rollout restart deployment/<server-deployment>
+```
+
+漏掉重启这一步，客户端拿新 key 过去照样被拒。
+
+## server 配置密钥（Docker 本地路线）
+
+本地 Docker 模式没有 ConfigMap，服务端读自己的配置文件。要让服务端校验 key，改 `~/.sandbox.toml` 的 `[server]` 段：
 
 ```toml
-api_key = "my_api_key"
+[server]
+host = "127.0.0.1"
+port = 8080
+max_sandbox_timeout_seconds = 86400
+api_key = "<你的密钥>"
 ```
 
-请求没带 key，服务端就回了 `MISSING_API_KEY` / 401。
-
-## 三条解决办法
-
-### 临时验证（只对当前命令生效）
+改完同样要重启。启动时用 `--config` 指定文件，不传就走默认的 `~/.sandbox.toml`：
 
 ```bash
-osb --api-key my_api_key sandbox list
+uvx opensandbox-server --config ~/.sandbox.toml
 ```
 
-### 持久写入配置文件（推荐）
+`api_key` 留空时服务端不会静默启动，而是要求先确认一次：交互式终端输入 `YES`，非交互场景（脚本、后台进程）必须显式给环境变量，否则直接退出。
 
 ```bash
-osb config set connection.api_key my_api_key
+OPENSANDBOX_INSECURE_SERVER=YES uvx opensandbox-server --config ~/.sandbox.toml
 ```
 
-它把 `api_key = "my_api_key"` 写进 `~/.opensandbox/config.toml`，之后直接 `osb sandbox list` 即可。
+写了 `api_key` 之后这条就多余了，确认流程只在密钥为空时触发。另外 `[server] api_key` 和 `[tenants]` 不能同时开，多租户模式下密钥由 tenant provider 管，两处都配启动会报错。
 
-### 环境变量（优先级高于配置文件）
+## OSB 配置密钥
+
+只对当前这条命令生效：
 
 ```bash
-export OPEN_SANDBOX_API_KEY=my_api_key
+osb --api-key <密钥> sandbox list
 ```
 
-CLI 支持这个变量。长期生效需要写进 `~/.bashrc`，这一步要改 shell 配置，没有执行。
-
-## 顺带记录的两个问题
-
-`~/.opensandbox/config.toml` 里 `domain = "127.0.0.1:8080"`，这个端口现在是 kind 的 envoy 占着，恰好也是 OpenSandbox 的入口（gateway），所以能通。如果哪天 kind 集群重建、envoy 路由变了，这里会突然连不上，届时改：
+要长期用就写进配置文件：
 
 ```bash
-osb config set connection.domain <新地址>
+osb config set connection.api_key <密钥>
 ```
 
-`opensandbox` 命名空间里还有两个 93 天前留下的沙箱 Pod，状态 Unknown：
+它把 `api_key = "<密钥>"` 写进 `~/.opensandbox/config.toml`，之后直接 `osb sandbox list` 即可。CLI 也认环境变量，优先级比配置文件高：
 
-```text
-opensandbox  79ded81a-...-0   0/1  Unknown
-opensandbox  cf0cb53b-...-0   0/1  Unknown
+```bash
+export OPEN_SANDBOX_API_KEY=<密钥>
 ```
 
-是节点重启后残留的僵尸对象，`osb sandbox list` 恢复后可能看到它们卡在异常状态。要清理就 `kubectl -n opensandbox delete pod ...`，属于删资源操作，没有执行。
+长期生效要写进 `~/.bashrc`。客户端发出去的请求头叫 `OPEN-SANDBOX-API-KEY`，自己写 HTTP 调用时对得上这个字段。
 
-## 密钥强度
+验证只看业务接口，`/health` 永远 200，它和 `/version`、`/docs`、`/redoc`、`/openapi.json` 以及沙箱端口代理路径一起在鉴权豁免名单里。
 
-`my_api_key` 是 Helm chart 的默认弱密钥（不是真实凭据），服务端明文放在 ConfigMap 里。本地玩没问题；如果这个集群有对外暴露的计划，最好换成随机强密钥：改 ConfigMap、重启 server、同步客户端 key 三步一起做。
+```bash
+osb sandbox list
+```
 
-## 参考来源
+输出正常列表就是通了。401 里回 `MISSING_API_KEY` 是客户端没带 key，回 `INVALID_API_KEY` 是带了但和服务端的值不一致。
 
-<!-- 待补：官方文档链接 + 查阅日期 -->
