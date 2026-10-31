@@ -44,6 +44,15 @@ osb command run <id> -o raw -- python /workspace/hello.py
 osb file download <id> /workspace/hello.py ./hello-from-sandbox.py -o json
 
 # 4. 出口策略对比
+cat > ~/network-policy.json <<'EOF'
+{
+  "defaultAction": "allow",
+  "egress": []
+}
+EOF
+osb sandbox create --image python:3.12 --timeout 5h \
+  --network-policy-file ~/network-policy.json -o json
+
 osb egress get <id> -o json
 osb command run <id> -o raw -- curl -I https://pypi.org
 osb egress patch <id> --rule deny=pypi.org -o json
